@@ -35,12 +35,18 @@ async function initDetails() {
     }
 }
 
+function getProxiedImage(url) {
+    if (!url) return '';
+    // Utiliza uma CDN de imagens rodando na infraestrutura do Cloudflare
+    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+}
+
 function renderGameDetails(game, screenshots) {
     const genres = game.genres ? game.genres.map(g => g.name).join(', ') : '-';
     const platforms = game.platforms ? game.platforms.map(p => p.platform.name).join(', ') : '-';
     const publishers = game.publishers ? game.publishers.map(p => p.name).join(', ') : '-';
     const developers = game.developers ? game.developers.map(d => d.name).join(', ') : '-';
-    const image = game.background_image || 'https://via.placeholder.com/1920x1080?text=Sem+Imagem';
+    const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/1920x1080?text=Sem+Imagem';
     
     // Background Cinematográfico Embaçado
     if (detailsBackground) {
@@ -53,7 +59,7 @@ function renderGameDetails(game, screenshots) {
             const delay = (index % 3) * 0.1;
             screenshotsHTML += `
                 <div class="col-12 col-md-6 col-lg-4 mb-3 reveal" style="transition-delay: ${delay}s;">
-                    <img src="${shot.image}" class="img-fluid w-100 screenshot-img" alt="Screenshot" loading="lazy">
+                    <img src="${getProxiedImage(shot.image)}" class="img-fluid w-100 screenshot-img" alt="Screenshot" loading="lazy">
                 </div>
             `;
         });

@@ -43,10 +43,16 @@ async function initHome() {
     }
 }
 
+function getProxiedImage(url) {
+    if (!url) return '';
+    // Utiliza uma CDN de imagens rodando na infraestrutura do Cloudflare
+    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+}
+
 function setHeroBackground(game) {
     if (!game || !game.background_image) return;
     
-    dynamicHero.style.backgroundImage = `url('${game.background_image}')`;
+    dynamicHero.style.backgroundImage = `url('${getProxiedImage(game.background_image)}')`;
     heroTitle.innerText = `O mundo de ${game.name}`;
 }
 
@@ -54,7 +60,7 @@ function renderDestaque(game) {
     if(!game) return;
 
     const genres = game.genres ? game.genres.map(g => g.name).join(' • ') : 'N/A';
-    const image = game.background_image || 'https://via.placeholder.com/1200x600';
+    const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/1200x600';
 
     const destaqueHTML = `
         <div class="featured-game mt-5 mb-5" style="background-image: url('${image}');">
@@ -98,7 +104,7 @@ function renderGames(games) {
 
     games.forEach((game, index) => {
         const genres = game.genres ? game.genres.map(g => g.name).join(', ') : '';
-        const image = game.background_image ? game.background_image : 'https://via.placeholder.com/600x400?text=Sem+Imagem';
+        const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/600x400?text=Sem+Imagem';
         
         // Efeito stagger manual na animação reveal
         const delay = (index % 4) * 0.1;
