@@ -53,6 +53,14 @@
         </div>
     </main>
 
+    <!-- Lightbox Container -->
+    <div id="lightbox" class="lightbox d-none">
+        <button class="lightbox-close" onclick="closeLightbox()" aria-label="Fechar galeria">&times;</button>
+        <button class="lightbox-prev" onclick="changeLightbox(-1)" aria-label="Foto anterior">&#10094;</button>
+        <img id="lightboxImg" class="lightbox-content" src="" alt="Zoomed Screenshot">
+        <button class="lightbox-next" onclick="changeLightbox(1)" aria-label="Próxima foto">&#10095;</button>
+    </div>
+
     <!-- Footer -->
     <footer class="text-light text-center py-4 mt-5 border-top border-secondary" style="background-color: var(--darker-bg);">
         <div class="container">
