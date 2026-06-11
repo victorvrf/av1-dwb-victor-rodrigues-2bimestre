@@ -22,7 +22,7 @@ async function initDetails() {
         ]);
 
         if (!game) {
-            showError("Jogo não encontrado.");
+            showError("Jogo não encontrado.", true);
             return;
         }
 
@@ -31,14 +31,14 @@ async function initDetails() {
 
     } catch (error) {
         console.error("Erro na carga de detalhes:", error);
-        showError("Ocorreu um erro ao carregar os detalhes do jogo.");
+        const msg = error.message || "A conexão demorou muito ou falhou. Tente novamente em alguns segundos.";
+        showError(msg, true);
     }
 }
 
-function getProxiedImage(url) {
+function getProxiedImage(url, width = 800) {
     if (!url) return '';
-    // Utiliza uma CDN de imagens rodando na infraestrutura do Cloudflare
-    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&output=webp&q=80`;
 }
 
 function renderGameDetails(game, screenshots) {
@@ -46,7 +46,7 @@ function renderGameDetails(game, screenshots) {
     const platforms = game.platforms ? game.platforms.map(p => p.platform.name).join(', ') : '-';
     const publishers = game.publishers ? game.publishers.map(p => p.name).join(', ') : '-';
     const developers = game.developers ? game.developers.map(d => d.name).join(', ') : '-';
-    const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/1920x1080?text=Sem+Imagem';
+    const image = game.background_image ? getProxiedImage(game.background_image, 1920) : 'https://via.placeholder.com/1920x1080?text=Sem+Imagem';
     
     // Background Cinematográfico Embaçado
     if (detailsBackground) {
@@ -55,11 +55,14 @@ function renderGameDetails(game, screenshots) {
 
     let screenshotsHTML = '';
     if (screenshots && screenshots.length > 0) {
+        // Guarda URLs em alta qualidade para o Lightbox
+        currentScreenshots = screenshots.slice(0, 6).map(shot => getProxiedImage(shot.image, 1920));
+        
         screenshots.slice(0, 6).forEach((shot, index) => {
             const delay = (index % 3) * 0.1;
             screenshotsHTML += `
                 <div class="col-12 col-md-6 col-lg-4 mb-3 reveal" style="transition-delay: ${delay}s;">
-                    <img src="${getProxiedImage(shot.image)}" class="img-fluid w-100 screenshot-img" alt="Screenshot" loading="lazy">
+                    <img src="${getProxiedImage(shot.image, 800)}" class="img-fluid w-100 screenshot-img" style="cursor: zoom-in;" alt="Screenshot" loading="lazy" onclick="openLightbox(${index})">
                 </div>
             `;
         });
@@ -133,11 +136,14 @@ function renderGameDetails(game, screenshots) {
     gameDetailsContainer.innerHTML = html;
 }
 
-function showError(message) {
+function showError(message, retry = false) {
     if (errorAlert) {
         errorAlert.classList.remove('d-none');
-        errorAlert.innerHTML = `<strong>Erro!</strong> ${message}`;
+        let retryBtn = retry ? `<button class="btn btn-outline-danger btn-sm mt-3 d-block w-100" onclick="initDetails()"><i class="bi bi-arrow-clockwise"></i> Tentar novamente</button>` : '';
+        errorAlert.innerHTML = `<strong>Aviso:</strong> ${message} ${retryBtn}`;
         gameDetailsContainer.innerHTML = '';
+        if (detailsBackground) detailsBackground.style.backgroundImage = 'none';
+        detailsBackground.style.backgroundColor = 'var(--darker-bg)';
     }
 }
 
@@ -162,3 +168,58 @@ function setupScrollReveal() {
         });
     }, 100);
 }
+
+// ---- Lightbox Functionality ----
+
+function openLightbox(index) {
+    currentLightboxIndex = index;
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    if (lightbox && lightboxImg && currentScreenshots.length > 0) {
+        lightboxImg.src = currentScreenshots[currentLightboxIndex];
+        lightbox.classList.remove('d-none');
+    }
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    if (lightbox) {
+        lightbox.classList.add('d-none');
+    }
+}
+
+function changeLightbox(direction) {
+    if (currentScreenshots.length === 0) return;
+    
+    currentLightboxIndex += direction;
+    if (currentLightboxIndex >= currentScreenshots.length) {
+        currentLightboxIndex = 0;
+    } else if (currentLightboxIndex < 0) {
+        currentLightboxIndex = currentScreenshots.length - 1;
+    }
+    
+    const lightboxImg = document.getElementById('lightboxImg');
+    if (lightboxImg) {
+        // Remove a classe de animação e força um reflow para reiniciar a animação
+        lightboxImg.classList.remove('animating-photo');
+        void lightboxImg.offsetWidth; 
+        
+        // Troca a imagem e adiciona a animação de volta
+        lightboxImg.src = currentScreenshots[currentLightboxIndex];
+        lightboxImg.classList.add('animating-photo');
+    }
+}
+
+// Fechar lightbox no esc e navegar com as setas
+document.addEventListener('keydown', function(event) {
+    const lightbox = document.getElementById('lightbox');
+    if (lightbox && !lightbox.classList.contains('d-none')) {
+        if (event.key === "Escape") {
+            closeLightbox();
+        } else if (event.key === "ArrowRight") {
+            changeLightbox(1);
+        } else if (event.key === "ArrowLeft") {
+            changeLightbox(-1);
+        }
+    }
+});

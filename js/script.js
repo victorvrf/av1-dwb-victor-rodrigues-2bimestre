@@ -10,49 +10,77 @@ const dynamicHero = document.getElementById('dynamicHero');
 const heroTitle = document.getElementById('heroTitle');
 const destaqueContainer = document.getElementById('destaqueContainer');
 
+function getProxiedImage(url, width = 800) {
+    if (!url) return '';
+    // Utiliza uma CDN rodando no Cloudflare e comprime imagens direto no servidor
+    return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&output=webp&q=80`;
+}
+
+function renderError(message, retryAction = 'initHome()') {
+    gamesList.innerHTML = `
+        <div class="col-12 text-center text-light mt-5 mb-5 reveal active">
+            <div class="p-4" style="background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.2); border-radius: 12px; display: inline-block;">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3"></i>
+                <h4 class="fw-bold mb-2">Não foi possível carregar os dados.</h4>
+                <p style="color: #cbd5e1;" class="mb-4">${message}</p>
+                <button class="btn btn-outline-light px-4 py-2" onclick="${retryAction}">
+                    <i class="bi bi-arrow-clockwise me-2"></i> Tentar novamente
+                </button>
+            </div>
+        </div>
+    `;
+    destaqueContainer.innerHTML = '';
+}
+
 async function initHome() {
     renderSkeletons(12);
 
-    let games = await fetchPopularGames();
-    
-    if (games && games.length > 0) {
-        // Configura a Hero Section Dinamicamente (1º Jogo)
-        setHeroBackground(games[0]);
-        // Configura o Destaque da Semana (2º Jogo)
-        renderDestaque(games[1]);
-        // Renderiza o resto na grid estilo Netflix
-        renderGames(games.slice(2));
-    } else {
-        gamesList.innerHTML = `<div class="col-12 text-center text-light mt-5"><h3>Nenhum jogo encontrado.</h3></div>`;
+    try {
+        let games = await fetchPopularGames();
+        
+        if (games && games.length > 0) {
+            // Embaralha o array de jogos para aleatoriedade
+            games = games.sort(() => Math.random() - 0.5);
+            
+            // Configura a Hero Section (tamanho maior de imagem)
+            setHeroBackground(games[0]);
+            // Configura o Destaque da Semana
+            renderDestaque(games[1]);
+            // Renderiza o resto na grid estilo Netflix
+            renderGames(games.slice(2));
+        } else {
+            gamesList.innerHTML = `<div class="col-12 text-center text-light mt-5"><h3>Nenhum jogo encontrado.</h3></div>`;
+        }
+    } catch (e) {
+        let errorMsg = e.message || 'Erro desconhecido. Tente novamente em alguns segundos.';
+        renderError(errorMsg, 'initHome()');
     }
 
     // Busca
-    if (searchForm) {
+    if (searchForm && !searchForm.hasAttribute('data-bound')) {
+        searchForm.setAttribute('data-bound', 'true');
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const query = searchInput.value.trim();
             if (query) {
                 renderSkeletons(8);
-                const searchResults = await searchGames(query);
-                renderGames(searchResults);
-                
-                // Desce a tela até os resultados
-                document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+                try {
+                    const searchResults = await searchGames(query);
+                    renderGames(searchResults);
+                    document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+                } catch(err) {
+                    renderError(err.message || 'Erro ao pesquisar. Confira sua conexão.', `document.getElementById('searchForm').dispatchEvent(new Event('submit'))`);
+                }
             }
         });
     }
 }
 
-function getProxiedImage(url) {
-    if (!url) return '';
-    // Utiliza uma CDN de imagens rodando na infraestrutura do Cloudflare
-    return `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
-}
-
 function setHeroBackground(game) {
     if (!game || !game.background_image) return;
     
-    dynamicHero.style.backgroundImage = `url('${getProxiedImage(game.background_image)}')`;
+    // Na imagem de herói pedimos resolução maior via proxy width=1920
+    dynamicHero.style.backgroundImage = `url('${getProxiedImage(game.background_image, 1920)}')`;
     heroTitle.innerText = `O mundo de ${game.name}`;
 }
 
@@ -60,7 +88,7 @@ function renderDestaque(game) {
     if(!game) return;
 
     const genres = game.genres ? game.genres.map(g => g.name).join(' • ') : 'N/A';
-    const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/1200x600';
+    const image = game.background_image ? getProxiedImage(game.background_image, 1200) : 'https://via.placeholder.com/1200x600';
 
     const destaqueHTML = `
         <div class="featured-game mt-5 mb-5" style="background-image: url('${image}');">
@@ -104,7 +132,7 @@ function renderGames(games) {
 
     games.forEach((game, index) => {
         const genres = game.genres ? game.genres.map(g => g.name).join(', ') : '';
-        const image = game.background_image ? getProxiedImage(game.background_image) : 'https://via.placeholder.com/600x400?text=Sem+Imagem';
+        const image = game.background_image ? getProxiedImage(game.background_image, 600) : 'https://via.placeholder.com/600x400?text=Sem+Imagem';
         
         // Efeito stagger manual na animação reveal
         const delay = (index % 4) * 0.1;

@@ -3,9 +3,59 @@
  */
 const API_KEY = "f2aa094c00c844d39cc29a364d508b43";
 const RAWG_URL = "https://api.rawg.io/api";
+const TIMEOUT_MS = 60000;
 
 function getProxiedUrl(url) {
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    return `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+}
+
+// Wrapper avançado com Timeout, Error Diferenciado e Cache Local Dinâmico
+async function fetchWithTimeoutAndCache(url, cacheKey) {
+    // Verifica cache localStorage
+    if (cacheKey) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                return JSON.parse(cached);
+            } catch(e) {
+                localStorage.removeItem(cacheKey);
+            }
+        }
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+        const response = await fetch(getProxiedUrl(url), { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw { type: 'http', status: response.status, message: `Erro HTTP ${response.status}: Limite da API ou bloqueio.` };
+        }
+        
+        const data = await response.json();
+        
+        // Salva com segurança no localStorage se válido
+        if (cacheKey && data) {
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+            } catch(e) {
+                console.warn("Storage cheio ou inacessível.");
+            }
+        }
+        return data;
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw { type: 'timeout', message: 'A conexão demorou mais que o esperado. Verifique sua rede.' };
+        } else if (error.type === 'http') {
+            throw error; // Repassa erro capturado por nós
+        } else {
+            throw { type: 'network', message: 'Falha de rede. Não foi possível conectar ao servidor.' };
+        }
+    }
 }
 
 /**
@@ -14,14 +64,11 @@ function getProxiedUrl(url) {
 async function fetchPopularGames() {
     try {
         const url = `${RAWG_URL}/games?key=${API_KEY}&page_size=20`;
-        const response = await fetch(getProxiedUrl(url));
-        if (!response.ok) throw new Error("Erro na rede ou limite da API atingido.");
-        const data = await response.json();
+        const data = await fetchWithTimeoutAndCache(url, 'cache_popular_games');
         return data.results;
     } catch (error) {
         console.error("Erro ao buscar jogos populares:", error);
-        console.warn("Utilizando dados de fallback...");
-        return typeof mockGamesData !== 'undefined' ? mockGamesData.results : [];
+        throw error;
     }
 }
 
@@ -30,14 +77,13 @@ async function fetchPopularGames() {
  */
 async function searchGames(query) {
     try {
+        const cacheKey = `cache_search_${query.toLowerCase().trim()}`;
         const url = `${RAWG_URL}/games?key=${API_KEY}&search=${query}&page_size=20`;
-        const response = await fetch(getProxiedUrl(url));
-        if (!response.ok) throw new Error("Erro na rede ou limite da API atingido.");
-        const data = await response.json();
+        const data = await fetchWithTimeoutAndCache(url, cacheKey);
         return data.results;
     } catch (error) {
         console.error("Erro ao buscar jogos com a query:", error);
-        return [];
+        throw error;
     }
 }
 
@@ -47,13 +93,11 @@ async function searchGames(query) {
 async function fetchGameDetails(gameId) {
     try {
         const url = `${RAWG_URL}/games/${gameId}?key=${API_KEY}`;
-        const response = await fetch(getProxiedUrl(url));
-        if (!response.ok) throw new Error("Erro na rede ou limite da API atingido.");
-        return await response.json();
+        const data = await fetchWithTimeoutAndCache(url, `cache_details_${gameId}`);
+        return data;
     } catch (error) {
         console.error("Erro ao buscar detalhes do jogo:", error);
-        console.warn("Utilizando dados de fallback...");
-        return typeof mockGameDetails !== 'undefined' ? mockGameDetails[gameId] : null;
+        throw error;
     }
 }
 
@@ -63,13 +107,10 @@ async function fetchGameDetails(gameId) {
 async function fetchGameScreenshots(gameId) {
     try {
         const url = `${RAWG_URL}/games/${gameId}/screenshots?key=${API_KEY}`;
-        const response = await fetch(getProxiedUrl(url));
-        if (!response.ok) throw new Error("Erro na rede ou limite da API atingido.");
-        const data = await response.json();
+        const data = await fetchWithTimeoutAndCache(url, `cache_screenshots_${gameId}`);
         return data.results;
     } catch (error) {
         console.error("Erro ao buscar screenshots:", error);
-        console.warn("Utilizando dados de fallback...");
-        return typeof mockScreenshots !== 'undefined' && mockScreenshots[gameId] ? mockScreenshots[gameId].results : [];
+        return [];
     }
 }
