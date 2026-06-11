@@ -1,12 +1,12 @@
 /**
  * Gerenciamento das chamadas à API da RAWG
  */
-const API_KEY = "f2aa094c00c844d39cc29a364d508b43";
+const API_KEY = "03fca8110ead4ba193fa59a2acad1ecc";
 const RAWG_URL = "https://api.rawg.io/api";
 const TIMEOUT_MS = 60000;
 
 function getProxiedUrl(url) {
-    return `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+    return `https://corsproxy.io/?${encodeURIComponent(url)}`;
 }
 
 // Wrapper avançado com Timeout, Error Diferenciado e Cache Local Dinâmico
